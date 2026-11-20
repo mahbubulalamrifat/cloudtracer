@@ -47,10 +47,14 @@ export function formatMarkdown(result: ScanResult): string {
     const h = result.hosting;
     lines.push("## Hosting & Compute");
     lines.push("");
-    if (h.platform && h.provider) {
+    if (h.platform && h.behindCdn) {
+      lines.push(`- **Platform**: ${h.platform.name} (behind ${h.behindCdn})`);
+    } else if (h.platform && h.provider) {
       lines.push(`- **Platform**: ${h.platform.name} (on ${h.provider.name})`);
     } else if (h.platform) {
       lines.push(`- **Platform**: ${h.platform.name}`);
+    } else if (h.behindCdn) {
+      lines.push(`- **Origin**: unknown (behind ${h.behindCdn})`);
     } else if (h.provider) {
       lines.push(`- **Provider**: ${h.provider.name}`);
     }
@@ -174,7 +178,13 @@ function generateMermaid(result: ScanResult): string {
   }
 
   // Hosting
-  if (result.hosting?.provider) {
+  if (result.hosting?.platform) {
+    const ips = result.hosting.ipAddresses.v4.slice(0, 1).join(", ");
+    lines.push(`    Host[Platform: ${result.hosting.platform.name}\\nIP: ${ips}]:::cloud`);
+  } else if (result.hosting?.behindCdn) {
+    const ips = result.hosting.ipAddresses.v4.slice(0, 1).join(", ");
+    lines.push(`    Host[Origin: unknown (behind ${result.hosting.behindCdn})\\nIP: ${ips}]:::cloud`);
+  } else if (result.hosting?.provider) {
     const ips = result.hosting.ipAddresses.v4.slice(0, 1).join(", ");
     lines.push(`    Host[Hosting: ${result.hosting.provider.name}\\nIP: ${ips}]:::cloud`);
   } else if (result.hosting) {

@@ -29,6 +29,12 @@ describe("matchDnsProvider", () => {
     expect(result!.name).toBe("Google Cloud DNS");
   });
 
+  it("should detect NS1 by default for nsone.net nameservers", () => {
+    const result = matchDnsProvider(["dns1.p01.nsone.net", "dns2.p01.nsone.net"]);
+    expect(result).toBeDefined();
+    expect(result!.name).toBe("NS1");
+  });
+
   it("should return undefined for unknown nameservers", () => {
     const result = matchDnsProvider(["ns1.unknownprovider.xyz"]);
     expect(result).toBeUndefined();
@@ -64,6 +70,17 @@ describe("matchCdnByHeaders", () => {
     expect(result.length).toBeGreaterThanOrEqual(2);
   });
 
+  it("should detect GitHub Pages by headers", () => {
+    const result = matchCdnByHeaders({
+      server: "GitHub.com",
+      "x-github-request-id": "ABCD:1234",
+      "x-github-edge-region": "iad",
+    });
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("GitHub Pages");
+    expect(result[0].evidence).toHaveLength(3);
+  });
+
   it("should return empty for no matches", () => {
     const result = matchCdnByHeaders({ "content-type": "text/html" });
     expect(result).toHaveLength(0);
@@ -81,6 +98,12 @@ describe("matchCdnByCname", () => {
     const result = matchCdnByCname(["mysite.netlify.app"]);
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe("Netlify");
+  });
+
+  it("should detect GitHub Pages by CNAME", () => {
+    const result = matchCdnByCname(["timothyjordan.github.io"]);
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("GitHub Pages");
   });
 });
 
@@ -158,6 +181,13 @@ describe("matchThirdPartyScripts", () => {
     ]);
     const gaMatches = result.filter((r) => r.name === "Google Analytics");
     expect(gaMatches).toHaveLength(1);
+  });
+
+  it("should detect Heap only once for cdn.heapanalytics.com", () => {
+    const result = matchThirdPartyScripts(["https://cdn.heapanalytics.com/js/heap-123.js"]);
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("Heap");
+    expect(result[0].category).toBe("analytics");
   });
 
   it("should return empty for no matches", () => {

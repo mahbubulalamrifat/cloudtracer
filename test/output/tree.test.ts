@@ -84,6 +84,41 @@ describe("formatTree", () => {
     expect(output).not.toContain("Provider : Amazon Web Services");
   });
 
+  it("should show unknown origin behind CDN when behindCdn is set without platform", () => {
+    const result: ScanResult = {
+      domain: "example.com",
+      scannedAt: new Date().toISOString(),
+      hosting: {
+        ipAddresses: { v4: ["151.101.1.69"], v6: [] },
+        asn: { number: 54113, name: "FASTLY" },
+        provider: { name: "Fastly", confidence: "high" },
+        behindCdn: "Fastly",
+      },
+    };
+
+    const output = formatTree(result);
+    expect(output).toContain("Origin   : unknown (behind Fastly)");
+    expect(output).not.toContain("Provider : Fastly");
+  });
+
+  it("should show platform behind CDN when both platform and behindCdn are set", () => {
+    const result: ScanResult = {
+      domain: "cloudtracer.dev",
+      scannedAt: new Date().toISOString(),
+      hosting: {
+        ipAddresses: { v4: ["104.21.54.121"], v6: [] },
+        asn: { number: 13335, name: "CLOUDFLARENET" },
+        provider: { name: "Cloudflare", confidence: "high" },
+        platform: { name: "GitHub Pages", confidence: "high" },
+        behindCdn: "Cloudflare",
+      },
+    };
+
+    const output = formatTree(result);
+    expect(output).toContain("Platform : GitHub Pages (behind Cloudflare)");
+    expect(output).not.toContain("(on Cloudflare)");
+  });
+
   it("should show performance metrics with timing labels", () => {
     const result: ScanResult = {
       domain: "example.com",

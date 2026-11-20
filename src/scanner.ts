@@ -1,3 +1,4 @@
+import ipaddr from "ipaddr.js";
 import type { ScanResult } from "./types.js";
 import type { Platform } from "./platform/types.js";
 import { scanDns } from "./scanners/dns.js";
@@ -126,7 +127,33 @@ const PLATFORM_IPS: Record<string, string[]> = {
     "151.101.1.195",
     "151.101.65.195",
   ],
+  "GitHub Pages": [
+    "185.199.108.153",
+    "185.199.109.153",
+    "185.199.110.153",
+    "185.199.111.153",
+    "2606:50c0:8000::153",
+    "2606:50c0:8001::153",
+    "2606:50c0:8002::153",
+    "2606:50c0:8003::153",
+  ],
 };
+
+// Platforms whose documented apex IPs uniquely identify them even without headers
+const DIRECT_PLATFORM_IP_SETS: { platform: string; ips: Set<string> }[] = [
+  {
+    platform: "GitHub Pages",
+    ips: new Set(PLATFORM_IPS["GitHub Pages"].map(normalizeIp)),
+  },
+];
+
+function normalizeIp(ip: string): string {
+  try {
+    return ipaddr.parse(ip).toString();
+  } catch {
+    return ip.toLowerCase();
+  }
+}
 
 // Platforms identifiable by CDN + SSL issuer combination
 const PLATFORM_BY_INFRA: {
@@ -143,14 +170,82 @@ const PLATFORM_BY_INFRA: {
   },
 ];
 
-function crossReferencePlatform(result: ScanResult): void {
-  // Check CDN header-detected platforms (Vercel, Netlify, etc.)
+const CDN_EDGE_PROVIDERS = new Set([
+  "Cloudflare",
+  "Fastly",
+  "Akamai",
+  "Amazon CloudFront",
+  "BunnyCDN",
+  "KeyCDN",
+  "StackPath",
+  "Sucuri",
+  "Imperva Incapsula",
+]);
+
+function applyBehindCdn(result: ScanResult): void {
+  if (!result.hosting) return;
+
+  const hostProvider = result.hosting.provider?.name;
+  if (hostProvider && CDN_EDGE_PROVIDERS.has(hostProvider)) {
+    result.hosting.behindCdn = hostProvider;
+    return;
+  }
+
+  const pureCdn = result.cdn?.providers.find(
+    (p) =>
+      !PLATFORM_PROVIDERS.has(p.provider.name) &&
+      CDN_EDGE_PROVIDERS.has(p.provider.name),
+  );
+  if (
+    pureCdn &&
+    (!hostProvider ||
+      (pureCdn.provider.name === "Amazon CloudFront" &&
+        hostProvider === "Amazon Web Services"))
+  ) {
+    result.hosting.behindCdn = pureCdn.provider.name;
+    return;
+  }
+
+  delete result.hosting.behindCdn;
+}
+
+function crossReferenceDns(result: ScanResult): void {
+  if (result.dns?.provider?.name !== "NS1") return;
+  const hasNetlifyCdn = result.cdn?.providers.some(
+    (p) => p.provider.name === "Netlify",
+  );
+  const hasNetlifyPlatform = result.hosting?.platform?.name === "Netlify";
+  if (hasNetlifyCdn || hasNetlifyPlatform) {
+    result.dns.provider = { name: "Netlify", confidence: "high" };
+  }
+}
+
+function detectHostingPlatform(result: ScanResult): void {
+  // Check CDN header/CNAME-detected platforms (Vercel, Netlify, GitHub Pages, etc.)
   if (result.cdn && result.hosting) {
     for (const cdnProvider of result.cdn.providers) {
       if (PLATFORM_PROVIDERS.has(cdnProvider.provider.name)) {
         result.hosting.platform = {
           name: cdnProvider.provider.name,
           confidence: cdnProvider.provider.confidence,
+        };
+        return;
+      }
+    }
+  }
+
+  // Check platforms uniquely identified by documented apex IPs
+  if (result.hosting) {
+    const normalizedIps = [
+      ...result.hosting.ipAddresses.v4,
+      ...result.hosting.ipAddresses.v6,
+    ].map(normalizeIp);
+
+    for (const entry of DIRECT_PLATFORM_IP_SETS) {
+      if (normalizedIps.some((ip) => entry.ips.has(ip))) {
+        result.hosting.platform = {
+          name: entry.platform,
+          confidence: "high",
         };
         return;
       }
@@ -182,4 +277,10 @@ function crossReferencePlatform(result: ScanResult): void {
       return;
     }
   }
+}
+
+function crossReferencePlatform(result: ScanResult): void {
+  detectHostingPlatform(result);
+  applyBehindCdn(result);
+  crossReferenceDns(result);
 }
