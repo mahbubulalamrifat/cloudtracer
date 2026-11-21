@@ -1,0 +1,15 @@
+{
+  "id": "ovh",
+  "name": "OVH",
+  "priority": 100,
+  "dns": {
+    "patterns": [
+      "*.ovh.net"
+    ]
+  },
+  "hosting": {
+    "asns": [
+      16276
+    ]
+  }
+}

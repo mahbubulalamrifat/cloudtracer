@@ -1,0 +1,15 @@
+{
+  "id": "incapsula",
+  "name": "Imperva Incapsula",
+  "priority": 90,
+  "cdn": {
+    "headers": {
+      "X-CDN": "Imperva",
+      "X-Iinfo": "*"
+    },
+    "cnames": [
+      "*.incapdns.net"
+    ],
+    "is_cdn_edge": true
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "sucuri",
+  "name": "Sucuri",
+  "priority": 80,
+  "cdn": {
+    "headers": {
+      "Server": "Sucuri*",
+      "X-Sucuri-ID": "*"
+    },
+    "cnames": [
+      "*.sucuri.net"
+    ],
+    "is_cdn_edge": true
+  }
+}

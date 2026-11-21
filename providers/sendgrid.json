@@ -1,0 +1,10 @@
+{
+  "id": "sendgrid",
+  "name": "SendGrid",
+  "priority": 85,
+  "email": {
+    "mx_patterns": [
+      "*.sendgrid.net"
+    ]
+  }
+}

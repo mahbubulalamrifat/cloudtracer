@@ -1,0 +1,10 @@
+{
+  "id": "mailgun",
+  "name": "Mailgun",
+  "priority": 80,
+  "email": {
+    "mx_patterns": [
+      "*.mailgun.org"
+    ]
+  }
+}

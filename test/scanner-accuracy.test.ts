@@ -206,4 +206,68 @@ describe("detection accuracy cross-referencing", () => {
     expect(result.hosting?.platform?.name).toBe("GitHub Pages");
     expect(result.hosting?.behindCdn).toBe("Cloudflare");
   });
+
+  it("preserves explicit CDN precedence when Cloudflare fronts BunnyCDN", async () => {
+    vi.mocked(fetchHeaders).mockResolvedValue({
+      "cf-ray": "abc123-SJC",
+      "cdn-pullzone": "12345",
+    });
+
+    const platform = mockPlatform({
+      dns: {
+        resolveA: vi.fn().mockResolvedValue(["104.21.1.2"]),
+      },
+    });
+
+    const result = await runScan("cf-bunny.example.com", platform);
+    expect(result.hosting?.behindCdn).toBe("Cloudflare");
+  });
+
+  it("sets hosting.platform for hosting providers marked is_platform (Fly.io ASN)", async () => {
+    vi.mocked(fetchHeaders).mockResolvedValue({});
+
+    const platform = mockPlatform({
+      dns: {
+        resolveA: vi.fn().mockResolvedValue(["66.241.124.1"]),
+        resolveTxt: vi.fn().mockImplementation(async (name: string) => {
+          if (name.endsWith(".origin.asn.cymru.com")) {
+            return ["40509 | 66.241.124.1 | 66.241.124.0/24 | US | arin"];
+          }
+          if (name === "AS40509.asn.cymru.com") {
+            return ["40509 | US | arin | 2021-01-01 | FLYIO, US"];
+          }
+          return [];
+        }),
+      },
+    });
+
+    const result = await runScan("app.fly.dev", platform);
+    expect(result.hosting?.provider?.name).toBe("Fly.io");
+    expect(result.hosting?.platform).toEqual({
+      name: "Fly.io",
+      confidence: "high",
+    });
+  });
+
+  it("does not report GitHub Pages platform for non-apex AS36459 GitHub IPs", async () => {
+    vi.mocked(fetchHeaders).mockResolvedValue({});
+
+    const platform = mockPlatform({
+      dns: {
+        resolveA: vi.fn().mockResolvedValue(["140.82.121.4"]),
+        resolveTxt: vi.fn().mockImplementation(async (name: string) => {
+          if (name.endsWith(".origin.asn.cymru.com")) {
+            return ["36459 | 140.82.121.4 | 140.82.121.0/24 | US | arin"];
+          }
+          if (name === "AS36459.asn.cymru.com") {
+            return ["36459 | US | arin | 2012-01-01 | GITHUB, US"];
+          }
+          return [];
+        }),
+      },
+    });
+
+    const result = await runScan("github.com", platform);
+    expect(result.hosting?.platform).toBeUndefined();
+  });
 });

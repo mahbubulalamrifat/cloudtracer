@@ -1,0 +1,10 @@
+{
+  "id": "dnsimple",
+  "name": "DNSimple",
+  "priority": 70,
+  "dns": {
+    "patterns": [
+      "*.dnsimple.com"
+    ]
+  }
+}
